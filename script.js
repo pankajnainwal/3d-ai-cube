@@ -108,11 +108,7 @@ function init() {
     const innerGeometry = new THREE.IcosahedronGeometry(sphereRadius * 0.998, 1); // Updated detail to 1
     const innerMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 }); // Match background
     const innerOccluder = new THREE.Mesh(innerGeometry, innerMaterial);
-    // innerOccluder.position.copy(actualWireframeSphereMesh.position); // Already at group origin
     sphere.add(innerOccluder); // Add occluder to the group
-
-    // Create and add panels to the actualWireframeSphereMesh
-    // createPanels(); // Call moved to end of selectAndStorePanelCenterCoords
 
     // Call the animate function to start the render loop
     animate();
@@ -138,17 +134,16 @@ function init() {
     hamburgerMenu = document.getElementById('hamburger-menu');
     menuPanelList = document.getElementById('menu-panel-list');
 
-    // Populate Menu
-    populateMenu();
+    // Populate Menu (This function might need selectedPanelCenterCoords if menu items are dynamic based on panels)
+    populateMenu(); 
 
     // Toggle Menu Logic
     if (hamburgerIcon && hamburgerMenu) {
         hamburgerIcon.addEventListener('click', () => {
             const isOpen = hamburgerMenu.classList.toggle('menu-open');
             hamburgerIcon.setAttribute('aria-expanded', isOpen.toString());
-            hamburgerMenu.setAttribute('aria-hidden', (!isOpen).toString()); // Update aria-hidden
+            hamburgerMenu.setAttribute('aria-hidden', (!isOpen).toString());
             if (isOpen) {
-                // Focus on the first menu item when menu opens
                 const firstMenuItem = hamburgerMenu.querySelector('button[role="menuitem"]');
                 if (firstMenuItem) {
                     firstMenuItem.focus();
@@ -182,24 +177,22 @@ function init() {
     if (arrowDown) arrowDown.addEventListener('click', () => rotateSphere(-ROTATION_INCREMENT, 0));
     if (arrowLeft) arrowLeft.addEventListener('click', () => rotateSphere(0, ROTATION_INCREMENT));
     if (arrowRight) arrowRight.addEventListener('click', () => rotateSphere(0, -ROTATION_INCREMENT));
-}
+        
+    selectAndStorePanelCenterCoords(); // Called within init now
+    createPanels();                   // Called after coords are selected
+} // End of init()
 
 function onWindowResize() {
-    // Update camera aspect ratio
     camera.aspect = window.innerWidth / window.innerHeight;
-    // Update camera projection matrix
     camera.updateProjectionMatrix();
-    // Update renderer size
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function animate() {
     requestAnimationFrame(animate);
-    // Render the scene
     renderer.render(scene, camera);
 }
 
-// Mouse event handlers for rotation
 function onMouseDown(event) {
     isDragging = true;
     previousMousePosition.x = event.clientX;
@@ -208,13 +201,10 @@ function onMouseDown(event) {
 
 function onMouseMove(event) {
     if (!isDragging) return;
-
     const deltaX = event.clientX - previousMousePosition.x;
     const deltaY = event.clientY - previousMousePosition.y;
-
     sphere.rotation.y += deltaX * 0.005;
     sphere.rotation.x += deltaY * 0.005;
-
     previousMousePosition.x = event.clientX;
     previousMousePosition.y = event.clientY;
 }
@@ -223,117 +213,95 @@ function onMouseUp() {
     isDragging = false;
 }
 
-// Popup functions
 function showPopup(content) {
     if (popup && popupText) {
-        lastFocusedElementBeforePopup = document.activeElement; // Store focus
+        lastFocusedElementBeforePopup = document.activeElement;
         popupText.textContent = content;
         popup.style.display = 'block';
-        popup.setAttribute('aria-hidden', 'false'); // Update aria-hidden
-        
+        popup.setAttribute('aria-hidden', 'false');
         const popupCloseButton = popup.querySelector('.close-button');
         if (popupCloseButton) {
-            popupCloseButton.focus(); // Focus on popup close button
+            popupCloseButton.focus();
         }
     }
 }
 
 function hidePopup() {
     if (popup && popupText) {
-        popup.setAttribute('aria-hidden', 'true'); // Update aria-hidden
+        popup.setAttribute('aria-hidden', 'true');
         popup.style.display = 'none';
         popupText.textContent = '';
-        
         if (lastFocusedElementBeforePopup) {
-            lastFocusedElementBeforePopup.focus(); // Return focus
+            lastFocusedElementBeforePopup.focus();
             lastFocusedElementBeforePopup = null;
         }
     }
 }
 
 function onClickPanel(event) {
-    // Calculate mouse position in normalized device coordinates (-1 to +1)
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    // Set the raycaster's origin and direction
     raycaster.setFromCamera(mouse, camera);
-
-    // Find intersected objects
     const intersects = raycaster.intersectObjects(panels, true);
 
     if (intersects.length > 0) {
         const clickedPanel = intersects[0].object;
-        if (clickedPanel.userData.type === 'hexagonPanel_integrated') { // Updated type check
+        if (clickedPanel.userData.type === 'hexagonPanel_integrated') {
             const panelId = clickedPanel.userData.id;
             const content = panelContents[panelId];
-
             if (content) {
                 showPopup(content);
             } else {
                 showPopup("Content not found for this panel.");
             }
-
-            // Visual feedback: Change its color to red and reset others
             panels.forEach(panel => {
                 if (panel !== clickedPanel) {
                     panel.material.color.setHex(panel.userData.originalColor);
                     if (panel.material.emissive) { 
                         panel.material.emissive.setHex(panel.userData.originalEmissive || 0x000000);
                     }
-                    panel.material.opacity = panel.userData.originalOpacity; // Reset opacity
+                    panel.material.opacity = panel.userData.originalOpacity;
                 }
             });
-            clickedPanel.material.color.set(0xff0000); // Set to red
-            clickedPanel.material.opacity = 1.0; // Make clicked panel fully opaque
+            clickedPanel.material.color.set(0xff0000);
+            clickedPanel.material.opacity = 1.0;
             if (clickedPanel.material.emissive) { 
                 clickedPanel.material.emissive.setHex(0x000000);
             }
-            // If the clicked panel was being hovered, hoveredPanel should be updated
-            // or its state considered so resetHoveredPanel doesn't undo the click visual.
-            // However, onClickPanel takes precedence; hover effects are managed by onPanelHover.
         }
     } else {
-        // Clicked on sphere or background, reset all panels and hide popup
         panels.forEach(panel => {
             panel.material.color.setHex(panel.userData.originalColor);
             if (panel.material.emissive) { 
                 panel.material.emissive.setHex(panel.userData.originalEmissive || 0x000000);
             }
-            panel.material.opacity = panel.userData.originalOpacity; // Reset opacity for all panels
+            panel.material.opacity = panel.userData.originalOpacity;
         });
-        hidePopup(); // Hide popup if click is not on a panel
+        hidePopup();
         console.log('Clicked on sphere or background');
     }
 }
 
 function onPanelHover(event) {
-    if (isDragging) return; // Don't show hover effects while dragging sphere
-
+    if (isDragging) return;
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
-
-    const intersects = raycaster.intersectObjects(panels, false); // false as panels are direct children of sphere
+    const intersects = raycaster.intersectObjects(panels, false);
 
     if (intersects.length > 0) {
         const intersectedObject = intersects[0].object;
-        if (intersectedObject.userData.type === 'hexagonPanel_integrated') { // Updated type check
+        if (intersectedObject.userData.type === 'hexagonPanel_integrated') {
             const isClickedPanel = intersectedObject.material.color.getHex() === 0xff0000;
-
             if (hoveredPanel !== intersectedObject && !isClickedPanel) {
                 resetHoveredPanel(); 
-                
                 hoveredPanel = intersectedObject;
-                // Ensure originalEmissive is stored if not already (should be by createPanels)
                 if (hoveredPanel.userData.originalEmissive === undefined && hoveredPanel.material.emissive) {
                     hoveredPanel.userData.originalEmissive = hoveredPanel.material.emissive.getHex();
                 }
                 if (hoveredPanel.material.emissive) {
-                    hoveredPanel.material.emissive.setHex(0x555500); // Hover emissive color
+                    hoveredPanel.material.emissive.setHex(0x555500);
                 }
-                 // Optionally make it slightly more opaque on hover
-                // hoveredPanel.material.opacity = Math.min(1.0, (hoveredPanel.userData.originalOpacity || 0.7) + 0.15);
             } else if (isClickedPanel) {
                 resetHoveredPanel(); 
             }
@@ -347,10 +315,9 @@ function onPanelHover(event) {
 
 function resetHoveredPanel() {
     if (hoveredPanel) {
-        if (hoveredPanel.material.color.getHex() !== 0xff0000 && hoveredPanel.material.emissive) { // Not clicked red
+        if (hoveredPanel.material.color.getHex() !== 0xff0000 && hoveredPanel.material.emissive) {
             hoveredPanel.material.emissive.setHex(hoveredPanel.userData.originalEmissive || 0x000000);
         }
-        // Reset opacity if it was changed on hover (only if not clicked red)
         if (hoveredPanel.material.color.getHex() !== 0xff0000) {
             hoveredPanel.material.opacity = hoveredPanel.userData.originalOpacity || 0.7;
         }
@@ -359,7 +326,7 @@ function resetHoveredPanel() {
 }
 
 function rotateSphere(rotationXAmount, rotationYAmount) {
-    if (sphere) { // Ensure sphere exists
+    if (sphere) {
         sphere.rotation.x += rotationXAmount;
         sphere.rotation.y += rotationYAmount;
     }
@@ -367,19 +334,16 @@ function rotateSphere(rotationXAmount, rotationYAmount) {
 
 function populateMenu() {
     if (!menuPanelList) return;
-    menuPanelList.innerHTML = ''; // Clear existing items
+    menuPanelList.innerHTML = '';
     panelMenuTitles.forEach((title, index) => {
         const li = document.createElement('li');
-        li.setAttribute('role', 'none'); // LI is just a container for the menuitem button
-        
+        li.setAttribute('role', 'none');
         const button = document.createElement('button');
         button.setAttribute('role', 'menuitem');
-        button.type = 'button'; // Explicitly set button type
+        button.type = 'button';
         button.textContent = title;
         button.dataset.panelId = index;
         button.addEventListener('click', onMenuItemClick);
-        // No need for explicit keydown for Enter/Space on button, browser handles it.
-
         li.appendChild(button);
         menuPanelList.appendChild(li);
     });
@@ -389,17 +353,16 @@ function handleMenuKeyDown(event) {
     if (!hamburgerMenu.classList.contains('menu-open')) return;
     const items = Array.from(menuPanelList.querySelectorAll('button[role="menuitem"]'));
     if (items.length === 0) return;
-
     let currentIndex = items.indexOf(document.activeElement);
 
     if (event.key === 'ArrowUp') {
         event.preventDefault();
         if (currentIndex > 0) items[currentIndex - 1].focus();
-        else items[items.length - 1].focus(); // Wrap to last
+        else items[items.length - 1].focus();
     } else if (event.key === 'ArrowDown') {
         event.preventDefault();
         if (currentIndex < items.length - 1) items[currentIndex + 1].focus();
-        else items[0].focus(); // Wrap to first
+        else items[0].focus();
     } else if (event.key === 'Home') {
         event.preventDefault();
         items[0].focus();
@@ -410,26 +373,20 @@ function handleMenuKeyDown(event) {
         event.preventDefault();
         hamburgerMenu.classList.remove('menu-open');
         hamburgerIcon.setAttribute('aria-expanded', 'false');
-        hamburgerMenu.setAttribute('aria-hidden', 'true'); // Update aria-hidden
-        hamburgerIcon.focus(); // Return focus
+        hamburgerMenu.setAttribute('aria-hidden', 'true');
+        hamburgerIcon.focus();
     }
 }
 
-
 function onMenuItemClick(event) {
-    // event.target will be the button due to event listener attachment
     const panelId = parseInt(event.target.dataset.panelId); 
     if (hamburgerMenu) {
-        hamburgerMenu.classList.remove('menu-open'); // Close menu
-        hamburgerIcon.setAttribute('aria-expanded', 'false'); // Update ARIA state
-        hamburgerMenu.setAttribute('aria-hidden', 'true'); // Update aria-hidden
+        hamburgerMenu.classList.remove('menu-open');
+        hamburgerIcon.setAttribute('aria-expanded', 'false');
+        hamburgerMenu.setAttribute('aria-hidden', 'true');
     }
-
-    // Find the corresponding 3D panel
     const targetPanel = panels.find(p => p.userData.id === panelId);
     if (targetPanel) {
-        // Simulate clicking the panel:
-        // 1. Reset other panels' appearance (color and emissive)
         panels.forEach(panel => {
             if (panel !== targetPanel) {
                 panel.material.color.setHex(panel.userData.originalColor);
@@ -438,34 +395,73 @@ function onMenuItemClick(event) {
                 }
             }
         });
-        // 2. Highlight the clicked panel
-        targetPanel.material.color.set(0xff0000); // Set to red
+        targetPanel.material.color.set(0xff0000);
         if (targetPanel.material.emissive) {
-            targetPanel.material.emissive.setHex(0x000000); // No emissive when "clicked"
+            targetPanel.material.emissive.setHex(0x000000);
         }
-        
-        // 3. Show popup with its content
-        const content = panelContents[panelId]; // panelContents should already exist
+        const content = panelContents[panelId];
         if (content) {
             showPopup(content);
         } else {
             showPopup("Content not found for this panel.");
         }
-        
-        // Reset hover effect if the clicked panel was the hovered one
         if (hoveredPanel === targetPanel) {
             hoveredPanel = null; 
         }
     }
-
-    // Return focus to hamburger icon after panel selection (and popup display)
     if (hamburgerIcon) {
         hamburgerIcon.focus();
     }
 }
 
-    submit_subtask_report(succeeded=true, summary=reportSummary);
-    createPanels(); // Call new createPanels after selectedPanelCenterCoords is populated
+function selectAndStorePanelCenterCoords() {
+    const detail = 1;
+    const geom = new THREE.IcosahedronGeometry(sphereRadius, detail);
+    const positions = geom.attributes.position;
+    const indices = geom.index;
+    let vertexFaceMap = new Array(positions.count).fill(null).map(() => new Set());
+    for (let i = 0; i < indices.count / 3; i++) {
+        const vA = indices.getX(i);
+        const vB = indices.getY(i);
+        const vC = indices.getZ(i);
+        vertexFaceMap[vA].add(i);
+        vertexFaceMap[vB].add(i);
+        vertexFaceMap[vC].add(i);
+    }
+
+    let allSixValentCoords = [];
+    for (let vIdx = 0; vIdx < positions.count; vIdx++) {
+        if (vertexFaceMap[vIdx].size === 6) {
+            allSixValentCoords.push({
+                x: parseFloat(positions.getX(vIdx).toFixed(4)),
+                y: parseFloat(positions.getY(vIdx).toFixed(4)),
+                z: parseFloat(positions.getZ(vIdx).toFixed(4))
+            });
+        }
+    }
+
+    allSixValentCoords.sort((a, b) => b.y - a.y);
+    let preliminarySelectedCoords = [];
+    if (allSixValentCoords.length >= 2) {
+        preliminarySelectedCoords.push(allSixValentCoords[0]);
+        preliminarySelectedCoords.push(allSixValentCoords[allSixValentCoords.length - 1]);
+        let equatorialCandidates = allSixValentCoords.slice(1, -1);
+        equatorialCandidates.sort((a, b) => Math.atan2(a.z, a.x) - Math.atan2(b.z, b.x));
+        const numEquatorial = 5;
+        if (equatorialCandidates.length >= numEquatorial) {
+            for (let i = 0; i < numEquatorial; i++) {
+                const index = Math.floor(i * equatorialCandidates.length / numEquatorial);
+                preliminarySelectedCoords.push(equatorialCandidates[index]);
+            }
+        } else {
+            console.error("Not enough equatorial candidates to select 5 panels.");
+            preliminarySelectedCoords.push(...equatorialCandidates.slice(0, 7 - preliminarySelectedCoords.length));
+        }
+    } else {
+        console.error("Not enough 6-valent vertices found to select top and bottom panels.");
+        preliminarySelectedCoords.push(...allSixValentCoords.slice(0, 7));
+    }
+    selectedPanelCenterCoords = preliminarySelectedCoords.slice(0, 7);
 }
 
 function createPanels() {
@@ -478,7 +474,6 @@ function createPanels() {
     const spherePositions = sphereGeom.attributes.position;
     const sphereIndices = sphereGeom.index;
 
-    // 1. Build vertex-to-face map for the main sphereGeom (detail 1)
     const vertexFaceMap = new Array(spherePositions.count).fill(null).map(() => new Set());
     for (let i = 0; i < sphereIndices.count / 3; i++) {
         const vA = sphereIndices.getX(i);
@@ -489,32 +484,26 @@ function createPanels() {
         vertexFaceMap[vC].add(i);
     }
 
-    panels.forEach(oldPanel => { // Clear any old panels from scene / dispose geometry if any
+    panels.forEach(oldPanel => {
         if(oldPanel.parent) oldPanel.parent.remove(oldPanel);
         if(oldPanel.geometry) oldPanel.geometry.dispose();
         if(oldPanel.material) oldPanel.material.dispose();
     });
-    panels.length = 0; // Clear the global panels array
+    panels.length = 0;
 
     selectedPanelCenterCoords.forEach((centerCoord, panelIdx) => {
-        // 2. Find the central vertex index on the sphere mesh
         const centralVertexIdx = findClosestVertexIndex(centerCoord, spherePositions);
         if (centralVertexIdx === -1) {
             console.error("Could not find central vertex for panel", panelIdx, centerCoord);
-            return; // Skip this panel
+            return;
         }
-
-        // 3. Get the 6 faces connected to this centralVertexIdx
         const connectedFaceIndices = Array.from(vertexFaceMap[centralVertexIdx]);
         if (connectedFaceIndices.length !== 6) {
             console.warn(`Panel ${panelIdx}: Central vertex ${centralVertexIdx} is connected to ${connectedFaceIndices.length} faces, expected 6. Skipping panel.`);
             return; 
         }
-
-        // 4. Collect all unique sphere vertex indices that form these 6 faces
         const panelSphereVertexIndices = new Set();
         const panelFaceDefinitions = []; 
-
         connectedFaceIndices.forEach(faceIdx => {
             const vA = sphereIndices.getX(faceIdx);
             const vB = sphereIndices.getY(faceIdx);
@@ -525,10 +514,8 @@ function createPanels() {
             panelFaceDefinitions.push([vA, vB, vC]);
         });
 
-        // 5. Create new BufferGeometry for the panel
         const panelVerticesArray = [];
         const sphereVertexIdxToArrayIdxMap = new Map(); 
-        
         Array.from(panelSphereVertexIndices).forEach((sphereVtxIdx, i) => {
             panelVerticesArray.push(spherePositions.getX(sphereVtxIdx));
             panelVerticesArray.push(spherePositions.getY(sphereVtxIdx));
@@ -548,7 +535,6 @@ function createPanels() {
         panelGeom.setIndex(panelIndicesArray);
         panelGeom.computeVertexNormals(); 
 
-        // 6. Create material for the panel
         const panelMaterial = new THREE.MeshStandardMaterial({
             color: 0xffee88, 
             side: THREE.DoubleSide, 
@@ -556,9 +542,7 @@ function createPanels() {
             opacity: 0.7 
         });
 
-        // 7. Create panel mesh and add it
         const panelMesh = new THREE.Mesh(panelGeom, panelMaterial.clone()); 
-        
         panelMesh.userData = {
             id: panelIdx,
             type: 'hexagonPanel_integrated', 
@@ -566,7 +550,6 @@ function createPanels() {
             originalOpacity: panelMaterial.opacity,
             originalEmissive: panelMaterial.emissive ? panelMaterial.emissive.getHex() : 0x000000 
         };
-        
         actualWireframeSphereMesh.add(panelMesh); 
         panels.push(panelMesh); 
     });
@@ -576,3 +559,7 @@ function createPanels() {
     }
     console.log(`Created ${panels.length} integrated panels.`);
 }
+
+// Execution
+init();
+// selectAndStorePanelCenterCoords(); // Removed from global scope
