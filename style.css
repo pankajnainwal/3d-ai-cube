@@ -5,6 +5,80 @@ body {
     background: linear-gradient(to bottom, #333333, #111111); 
     color: #fff; 
 }
+
+#hamburger-icon {
+    position: fixed;
+    top: 15px;
+    right: 20px;
+    font-size: 30px;
+    color: #fff; /* White icon */
+    cursor: pointer;
+    z-index: 1001; /* Above canvas, below menu if it slides over */
+}
+
+.menu {
+    position: fixed;
+    top: 0;
+    right: -280px; /* Start off-screen */
+    width: 250px;
+    height: 100%;
+    background-color: #222; /* Dark background for menu */
+    padding: 15px;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.5);
+    transition: right 0.3s ease;
+    z-index: 1000; /* Below icon if icon needs to stay visible */
+    overflow-y: auto;
+}
+.menu.menu-open {
+    right: 0; /* Slide in */
+}
+#menu-panel-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    margin-top: 40px; /* Space for icon or top bar */
+}
+#menu-panel-list li {
+    padding: 10px 15px;
+    color: #eee;
+    cursor: pointer;
+    border-bottom: 1px solid #444;
+    font-size: 1.1em;
+}
+#menu-panel-list li:hover {
+    background-color: #555;
+    color: #fff;
+}
+#menu-panel-list li:first-child {
+    border-top: 1px solid #444;
+}
+
+#nav-arrows {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000; /* Ensure it's above the canvas */
+    text-align: center; /* To center the left/right/down row if using nested div */
+}
+#nav-arrows button {
+    font-size: 20px;
+    padding: 8px 12px;
+    margin: 2px;
+    background-color: rgba(50, 50, 50, 0.7); /* Semi-transparent dark */
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+#nav-arrows button:hover {
+    background-color: rgba(80, 80, 80, 0.9);
+}
+#nav-arrows > div { /* Styling for the nested div containing left, down, right */
+    display: flex;
+    justify-content: center;
+}
+
 canvas#sphereCanvas { 
     display: block; 
     width: 100vw; 

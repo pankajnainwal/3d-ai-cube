@@ -11,6 +11,13 @@ let hoveredPanel = null; // For hover effect
 // DOM elements for popup
 let popup, popupText, closeButton;
 
+// Hamburger Menu Elements
+let hamburgerIcon, hamburgerMenu, menuPanelList;
+
+// Navigation Arrow Elements
+let arrowUp, arrowDown, arrowLeft, arrowRight;
+const ROTATION_INCREMENT = Math.PI / 16; // Approx 11.25 degrees
+
 // Content for each panel
 const panelContents = [
     "This is Panel 0: North Pole. Welcome to the top of the world!",
@@ -20,6 +27,11 @@ const panelContents = [
     "This is Panel 4: Equator Zone C. A place of mystery and wonder.",
     "This is Panel 5: Equator Zone D. Explore the vibrant culture.",
     "This is Panel 6: Equator Zone E. The final frontier on the equator."
+];
+
+const panelMenuTitles = [
+    "North Pole", "South Pole", "Equator A", "Equator B", 
+    "Equator C", "Equator D", "Equator E"
 ];
 
 function init() {
@@ -44,9 +56,9 @@ function init() {
 
     // Create sphere geometry and material
     // Ensure sphereRadius is used here if it wasn't already
-    const geometry = new THREE.IcosahedronGeometry(sphereRadius, 1); // Low-poly geometry
+    const geometry = new THREE.IcosahedronGeometry(sphereRadius, 2); // Increased detail
     const material = new THREE.MeshStandardMaterial({ 
-        color: 0x0077ff, 
+        color: 0xffffff, // White wireframe
         wireframe: true, // Wireframe style
         roughness: 0.5, 
         metalness: 0.1 
@@ -78,6 +90,21 @@ function init() {
     popupText = document.getElementById('popupText');
     closeButton = document.querySelector('.popup .close-button');
 
+    // Initialize hamburger menu elements
+    hamburgerIcon = document.getElementById('hamburger-icon');
+    hamburgerMenu = document.getElementById('hamburger-menu');
+    menuPanelList = document.getElementById('menu-panel-list');
+
+    // Populate Menu
+    populateMenu();
+
+    // Toggle Menu Logic
+    if (hamburgerIcon && hamburgerMenu) {
+        hamburgerIcon.addEventListener('click', () => {
+            hamburgerMenu.classList.toggle('menu-open');
+        });
+    }
+
     // Add event listeners for popup
     if (closeButton) {
         closeButton.addEventListener('click', hidePopup);
@@ -87,6 +114,17 @@ function init() {
             hidePopup();
         }
     });
+
+    // Initialize Arrow Buttons and add event listeners
+    arrowUp = document.getElementById('arrow-up');
+    arrowDown = document.getElementById('arrow-down');
+    arrowLeft = document.getElementById('arrow-left');
+    arrowRight = document.getElementById('arrow-right');
+
+    if (arrowUp) arrowUp.addEventListener('click', () => rotateSphere(ROTATION_INCREMENT, 0));
+    if (arrowDown) arrowDown.addEventListener('click', () => rotateSphere(-ROTATION_INCREMENT, 0));
+    if (arrowLeft) arrowLeft.addEventListener('click', () => rotateSphere(0, ROTATION_INCREMENT));
+    if (arrowRight) arrowRight.addEventListener('click', () => rotateSphere(0, -ROTATION_INCREMENT));
 }
 
 function onWindowResize() {
@@ -242,6 +280,65 @@ function resetHoveredPanel() {
         }
     }
     hoveredPanel = null;
+}
+
+function rotateSphere(rotationXAmount, rotationYAmount) {
+    if (sphere) { // Ensure sphere exists
+        sphere.rotation.x += rotationXAmount;
+        sphere.rotation.y += rotationYAmount;
+    }
+}
+
+function populateMenu() {
+    if (!menuPanelList) return;
+    menuPanelList.innerHTML = ''; // Clear existing items
+    panelMenuTitles.forEach((title, index) => {
+        const li = document.createElement('li');
+        li.textContent = title;
+        li.dataset.panelId = index; // Store panel ID
+        li.addEventListener('click', onMenuItemClick);
+        menuPanelList.appendChild(li);
+    });
+}
+
+function onMenuItemClick(event) {
+    const panelId = parseInt(event.target.dataset.panelId);
+    if (hamburgerMenu) {
+        hamburgerMenu.classList.remove('menu-open'); // Close menu
+    }
+
+    // Find the corresponding 3D panel
+    const targetPanel = panels.find(p => p.userData.id === panelId);
+    if (targetPanel) {
+        // Simulate clicking the panel:
+        // 1. Reset other panels' appearance (color and emissive)
+        panels.forEach(panel => {
+            if (panel !== targetPanel) {
+                panel.material.color.setHex(panel.userData.originalColor);
+                if (panel.material.emissive) {
+                     panel.material.emissive.setHex(panel.userData.originalEmissive || 0x000000);
+                }
+            }
+        });
+        // 2. Highlight the clicked panel
+        targetPanel.material.color.set(0xff0000); // Set to red
+        if (targetPanel.material.emissive) {
+            targetPanel.material.emissive.setHex(0x000000); // No emissive when "clicked"
+        }
+        
+        // 3. Show popup with its content
+        const content = panelContents[panelId]; // panelContents should already exist
+        if (content) {
+            showPopup(content);
+        } else {
+            showPopup("Content not found for this panel.");
+        }
+        
+        // Reset hover effect if the clicked panel was the hovered one
+        if (hoveredPanel === targetPanel) {
+            hoveredPanel = null; 
+        }
+    }
 }
 
 function createHexagonGeometry() {
