@@ -1,29 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>3D Sphere with Panels</title>
+    <title>Interactive 3D Sphere with Hexagonal Panels</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-    <div id="hamburger-icon">&#9776;</div> 
-    <div id="hamburger-menu" class="menu">
-        <ul id="menu-panel-list">
+    <button type="button" id="hamburger-icon" aria-label="Menu" aria-expanded="false" aria-controls="hamburger-menu">&#9776;</button>
+    <div id="hamburger-menu" class="menu" aria-hidden="true">
+        <ul id="menu-panel-list" role="menu">
             <!-- Panel titles will be populated by JS -->
         </ul>
     </div>
-    <canvas id="sphereCanvas"></canvas>
+    <canvas id="sphereCanvas" aria-label="Interactive 3D sphere. Use mouse or arrow keys to rotate. Click panels or use menu for content."></canvas>
     <div id="nav-arrows">
-        <button id="arrow-up">&#8593;</button> <!-- Up Arrow -->
+        <button id="arrow-up" aria-label="Rotate sphere up">&#8593;</button> <!-- Up Arrow -->
         <div>
-            <button id="arrow-left">&#8592;</button> <!-- Left Arrow -->
-            <button id="arrow-down">&#8595;</button> <!-- Down Arrow -->
-            <button id="arrow-right">&#8594;</button> <!-- Right Arrow -->
+            <button id="arrow-left" aria-label="Rotate sphere left">&#8592;</button> <!-- Left Arrow -->
+            <button id="arrow-down" aria-label="Rotate sphere down">&#8595;</button> <!-- Down Arrow -->
+            <button id="arrow-right" aria-label="Rotate sphere right">&#8594;</button> <!-- Right Arrow -->
         </div>
     </div>
-    <div id="popup" class="popup" style="display:none;">
+    <div id="popup" class="popup" role="dialog" aria-modal="true" style="display:none;">
         <div class="popup-content">
-            <span class="close-button">&times;</span>
+            <button type="button" class="close-button" aria-label="Close popup">&times;</button>
             <p id="popupText"></p>
         </div>
     </div>
