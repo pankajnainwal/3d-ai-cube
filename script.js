@@ -1,5 +1,6 @@
 // Global Variables
-let scene, camera, renderer, sphere;
+let scene, camera, renderer, sphere; // sphere will become sphereGroup
+let actualWireframeSphereMesh; // Will hold the actual mesh for the wireframe
 let panels = [];
 const sphereRadius = 2; // Define sphere radius
 let isDragging = false;
@@ -54,22 +55,31 @@ function init() {
     directionalLight.position.set(5, 3, 5);
     scene.add(directionalLight);
 
-    // Create sphere geometry and material
-    // Ensure sphereRadius is used here if it wasn't already
-    const geometry = new THREE.IcosahedronGeometry(sphereRadius, 2); // Increased detail
-    const material = new THREE.MeshStandardMaterial({ 
-        color: 0xffffff, // White wireframe
-        wireframe: true, // Wireframe style
-        roughness: 0.5, 
-        metalness: 0.1 
-    });
-    sphere = new THREE.Mesh(geometry, material);
-
-    // Add sphere to the scene
+    // Create a group for the sphere assembly
+    sphere = new THREE.Group(); // The global 'sphere' variable now refers to the group
     scene.add(sphere);
 
-    // Create and add panels to the sphere
-    createPanels();
+    // Outer wireframe sphere (actual mesh)
+    const outerGeometry = new THREE.IcosahedronGeometry(sphereRadius, 2);
+    const outerMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff, // White wireframe
+        wireframe: true,
+        roughness: 0.5,
+        metalness: 0.1,
+        side: THREE.FrontSide // For backface culling effect
+    });
+    actualWireframeSphereMesh = new THREE.Mesh(outerGeometry, outerMaterial);
+    sphere.add(actualWireframeSphereMesh); // Add wireframe mesh to the group
+
+    // Inner solid occluding sphere
+    const innerGeometry = new THREE.IcosahedronGeometry(sphereRadius * 0.998, 2); // Slightly smaller
+    const innerMaterial = new THREE.MeshBasicMaterial({ color: 0x111111 }); // Match background
+    const innerOccluder = new THREE.Mesh(innerGeometry, innerMaterial);
+    // innerOccluder.position.copy(actualWireframeSphereMesh.position); // Already at group origin
+    sphere.add(innerOccluder); // Add occluder to the group
+
+    // Create and add panels to the actualWireframeSphereMesh
+    createPanels(); // createPanels will now need to add to actualWireframeSphereMesh
 
     // Call the animate function to start the render loop
     animate();
@@ -383,14 +393,13 @@ function createPanels() {
         panel.position.z = panelRadius * Math.sin(coords.theta) * Math.sin(coords.phi);
 
         // Orient the panel to face outwards from the sphere's center
-        panel.lookAt(0, 0, 0);
-        // Since the hexagon is on the XY plane, its normal is along Z.
-        // lookAt(0,0,0) points its -Z towards origin.
-        // To make its +Z (front face) point outwards, rotate 180 deg around its local Y.
-        panel.rotation.y += Math.PI;
+        // The panel is a child of actualWireframeSphereMesh which is at (0,0,0) within the sphereGroup.
+        // So, panel's lookAt should target the center of actualWireframeSphereMesh (which is its local 0,0,0).
+        panel.lookAt(0, 0, 0); 
+        panel.rotation.y += Math.PI; // Adjust orientation as before
 
 
-        sphere.add(panel); // Add panel as a child of the sphere
+        actualWireframeSphereMesh.add(panel); // Add panel as a child of the actualWireframeSphereMesh
         panels.push(panel);
         panel.userData = { 
             id: i, 
