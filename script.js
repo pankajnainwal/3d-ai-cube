@@ -1,0 +1,308 @@
+// Global Variables
+let scene, camera, renderer, sphere;
+let panels = [];
+const sphereRadius = 2; // Define sphere radius
+let isDragging = false;
+let previousMousePosition = { x: 0, y: 0 };
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+let hoveredPanel = null; // For hover effect
+
+// DOM elements for popup
+let popup, popupText, closeButton;
+
+// Content for each panel
+const panelContents = [
+    "This is Panel 0: North Pole. Welcome to the top of the world!",
+    "This is Panel 1: South Pole. It's chilly down here!",
+    "This is Panel 2: Equator Zone A. Enjoy the tropical vibes.",
+    "This is Panel 3: Equator Zone B. Discover amazing things here.",
+    "This is Panel 4: Equator Zone C. A place of mystery and wonder.",
+    "This is Panel 5: Equator Zone D. Explore the vibrant culture.",
+    "This is Panel 6: Equator Zone E. The final frontier on the equator."
+];
+
+function init() {
+    // Create the scene
+    scene = new THREE.Scene();
+
+    // Create the camera
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 5;
+
+    // Create the renderer
+    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('sphereCanvas'), antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Add basic lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 3, 5);
+    scene.add(directionalLight);
+
+    // Create sphere geometry and material
+    // Ensure sphereRadius is used here if it wasn't already
+    const geometry = new THREE.IcosahedronGeometry(sphereRadius, 1); // Low-poly geometry
+    const material = new THREE.MeshStandardMaterial({ 
+        color: 0x0077ff, 
+        wireframe: true, // Wireframe style
+        roughness: 0.5, 
+        metalness: 0.1 
+    });
+    sphere = new THREE.Mesh(geometry, material);
+
+    // Add sphere to the scene
+    scene.add(sphere);
+
+    // Create and add panels to the sphere
+    createPanels();
+
+    // Call the animate function to start the render loop
+    animate();
+
+    // Add a window resize listener
+    window.addEventListener('resize', onWindowResize, false);
+
+    // Add mouse event listeners for rotation
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('mousemove', onMouseMove); // For sphere rotation
+    renderer.domElement.addEventListener('mouseup', onMouseUp);
+    renderer.domElement.addEventListener('mouseout', onMouseUp); // Stop dragging if mouse leaves canvas
+    renderer.domElement.addEventListener('click', onClickPanel);
+    renderer.domElement.addEventListener('mousemove', onPanelHover); // For panel hover effect
+
+    // Initialize popup elements
+    popup = document.getElementById('popup');
+    popupText = document.getElementById('popupText');
+    closeButton = document.querySelector('.popup .close-button');
+
+    // Add event listeners for popup
+    if (closeButton) {
+        closeButton.addEventListener('click', hidePopup);
+    }
+    window.addEventListener('click', function(event) {
+        if (event.target == popup) {
+            hidePopup();
+        }
+    });
+}
+
+function onWindowResize() {
+    // Update camera aspect ratio
+    camera.aspect = window.innerWidth / window.innerHeight;
+    // Update camera projection matrix
+    camera.updateProjectionMatrix();
+    // Update renderer size
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    // Render the scene
+    renderer.render(scene, camera);
+}
+
+// Mouse event handlers for rotation
+function onMouseDown(event) {
+    isDragging = true;
+    previousMousePosition.x = event.clientX;
+    previousMousePosition.y = event.clientY;
+}
+
+function onMouseMove(event) {
+    if (!isDragging) return;
+
+    const deltaX = event.clientX - previousMousePosition.x;
+    const deltaY = event.clientY - previousMousePosition.y;
+
+    sphere.rotation.y += deltaX * 0.005;
+    sphere.rotation.x += deltaY * 0.005;
+
+    previousMousePosition.x = event.clientX;
+    previousMousePosition.y = event.clientY;
+}
+
+function onMouseUp() {
+    isDragging = false;
+}
+
+// Popup functions
+function showPopup(content) {
+    if (popup && popupText) {
+        popupText.textContent = content;
+        popup.style.display = 'block';
+    }
+}
+
+function hidePopup() {
+    if (popup && popupText) {
+        popup.style.display = 'none';
+        popupText.textContent = '';
+    }
+}
+
+function onClickPanel(event) {
+    // Calculate mouse position in normalized device coordinates (-1 to +1)
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Set the raycaster's origin and direction
+    raycaster.setFromCamera(mouse, camera);
+
+    // Find intersected objects
+    const intersects = raycaster.intersectObjects(panels, true);
+
+    if (intersects.length > 0) {
+        const clickedPanel = intersects[0].object;
+        if (clickedPanel.userData.type === 'hexagonPanel') {
+            const panelId = clickedPanel.userData.id;
+            const content = panelContents[panelId];
+
+            if (content) {
+                showPopup(content);
+            } else {
+                showPopup("Content not found for this panel.");
+            }
+
+            // Visual feedback: Change its color to red and reset others
+            panels.forEach(panel => {
+                if (panel !== clickedPanel) {
+                    panel.material.color.setHex(panel.userData.originalColor);
+                    if (panel.material.emissive) { // Reset emissive for non-clicked panels
+                        panel.material.emissive.setHex(panel.userData.originalEmissive || 0x000000);
+                    }
+                }
+            });
+            clickedPanel.material.color.set(0xff0000); // Set to red
+            if (clickedPanel.material.emissive) { // Ensure clicked panel's emissive is off
+                clickedPanel.material.emissive.setHex(0x000000);
+            }
+            // If the clicked panel was being hovered, hoveredPanel should be updated
+            // or its state considered so resetHoveredPanel doesn't undo the click visual.
+            // However, onClickPanel takes precedence; hover effects are managed by onPanelHover.
+        }
+    } else {
+        // Clicked on sphere or background, reset all panels and hide popup
+        panels.forEach(panel => {
+            panel.material.color.setHex(panel.userData.originalColor);
+            if (panel.material.emissive) { // Reset emissive for all panels
+                panel.material.emissive.setHex(panel.userData.originalEmissive || 0x000000);
+            }
+        });
+        hidePopup(); // Hide popup if click is not on a panel
+        console.log('Clicked on sphere or background');
+    }
+}
+
+function onPanelHover(event) {
+    if (isDragging) return; // Don't show hover effects while dragging sphere
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObjects(panels, false); // false as panels are direct children of sphere
+
+    if (intersects.length > 0) {
+        const intersectedObject = intersects[0].object;
+        if (intersectedObject.userData.type === 'hexagonPanel') {
+            // Check if the panel is currently "clicked" (red)
+            const isClickedPanel = intersectedObject.material.color.getHex() === 0xff0000;
+
+            if (hoveredPanel !== intersectedObject && !isClickedPanel) {
+                resetHoveredPanel(); // Reset the previously hovered panel if it's not the current one and not clicked
+                
+                hoveredPanel = intersectedObject;
+                if (!hoveredPanel.userData.originalEmissive) { // Should have been set at creation
+                    hoveredPanel.userData.originalEmissive = hoveredPanel.material.emissive ? hoveredPanel.material.emissive.getHex() : 0x000000;
+                }
+                if (hoveredPanel.material.emissive) {
+                    hoveredPanel.material.emissive.setHex(0x777700); // Brighter yellow/orange emissive on hover
+                }
+            } else if (isClickedPanel) {
+                 // If hovering over a clicked panel, ensure no hover emissive is applied
+                resetHoveredPanel(); // Clears any other hovered panel
+                // The clicked panel should retain its non-emissive red state
+            }
+        } else { // Intersected something, but not a panel (e.g. sphere itself if it was in `panels`)
+            resetHoveredPanel();
+        }
+    } else { // No intersections
+        resetHoveredPanel();
+    }
+}
+
+function resetHoveredPanel() {
+    if (hoveredPanel) {
+        // Only reset emissive if the panel is not clicked (i.e., not red)
+        if (hoveredPanel.material.color.getHex() !== 0xff0000 && hoveredPanel.material.emissive) {
+            hoveredPanel.material.emissive.setHex(hoveredPanel.userData.originalEmissive || 0x000000);
+        }
+    }
+    hoveredPanel = null;
+}
+
+function createHexagonGeometry() {
+    const shape = new THREE.Shape();
+    const size = 0.4; // Size of the hexagon
+    shape.moveTo(size * Math.cos(0), size * Math.sin(0));
+    for (let i = 1; i <= 6; i++) {
+        shape.lineTo(size * Math.cos(i * Math.PI / 3), size * Math.sin(i * Math.PI / 3));
+    }
+    return new THREE.ShapeGeometry(shape);
+}
+
+function createPanels() {
+    const hexGeometry = createHexagonGeometry();
+    // Panel material should remain solid (no wireframe: true here)
+    const panelMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xffcc00, 
+        side: THREE.DoubleSide, 
+        emissive: 0x333300, // This is the originalEmissive base for panels
+        roughness: 0.7, 
+        metalness: 0.2 
+    });
+
+    const panelRadius = sphereRadius + 0.05; // Slightly above the sphere's surface
+
+    const panelPositionsSpherical = [
+        { theta: 0, phi: 0 }, // North Pole
+        { theta: Math.PI, phi: 0 }, // South Pole
+        { theta: Math.PI / 2, phi: 0 }, // Equatorial 1
+        { theta: Math.PI / 2, phi: (2 * Math.PI / 5) * 1 }, // Equatorial 2
+        { theta: Math.PI / 2, phi: (2 * Math.PI / 5) * 2 }, // Equatorial 3
+        { theta: Math.PI / 2, phi: (2 * Math.PI / 5) * 3 }, // Equatorial 4
+        { theta: Math.PI / 2, phi: (2 * Math.PI / 5) * 4 }  // Equatorial 5
+    ];
+
+    panelPositionsSpherical.forEach((coords, i) => {
+        const panel = new THREE.Mesh(hexGeometry, panelMaterial);
+
+        // Convert spherical coordinates to Cartesian
+        panel.position.x = panelRadius * Math.sin(coords.theta) * Math.cos(coords.phi);
+        panel.position.y = panelRadius * Math.cos(coords.theta);
+        panel.position.z = panelRadius * Math.sin(coords.theta) * Math.sin(coords.phi);
+
+        // Orient the panel to face outwards from the sphere's center
+        panel.lookAt(0, 0, 0);
+        // Since the hexagon is on the XY plane, its normal is along Z.
+        // lookAt(0,0,0) points its -Z towards origin.
+        // To make its +Z (front face) point outwards, rotate 180 deg around its local Y.
+        panel.rotation.y += Math.PI;
+
+
+        sphere.add(panel); // Add panel as a child of the sphere
+        panels.push(panel);
+        panel.userData = { 
+            id: i, 
+            type: 'hexagonPanel', 
+            originalColor: panelMaterial.color.getHex(),
+            originalEmissive: panelMaterial.emissive ? panelMaterial.emissive.getHex() : 0x000000 
+        };
+    });
+}
+
+// Execution
+init();
